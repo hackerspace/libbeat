@@ -29,6 +29,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(this->ui->startButton,SIGNAL(clicked()),ui->widget,SLOT(start()));
     connect(this->ui->stopButton,SIGNAL(clicked()),ui->widget,SLOT(stop()));
     connect(this->ui->windowFunctionComboBox,SIGNAL(currentIndexChanged(QString)),ui->widget, SLOT(windowFunctionChanged(QString)));
+    ui->startButton->click();
+    //start();
 
 }
 

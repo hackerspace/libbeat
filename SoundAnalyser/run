@@ -1,0 +1,1 @@
+LD_LIBRARY_PATH=../src/ ./SoundAnalyser 2>&1 | ./srv

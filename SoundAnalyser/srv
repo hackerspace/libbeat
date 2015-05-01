@@ -1,0 +1,186 @@
+#!/usr/bin/python
+import re
+import struct
+import argparse
+import Queue
+
+from twisted.python import log
+from twisted.internet import stdio, reactor
+from twisted.internet.defer import Deferred
+from twisted.protocols.basic import LineReceiver
+from twisted.internet.protocol import DatagramProtocol
+
+re_num = re.compile(r'\d+')
+
+
+class BeatProto(LineReceiver):
+    delimiter = '\n'
+    ready_cb = Deferred()
+
+    def __init__(self, router):
+        self.router = router
+
+    def lineReceived(self, line):
+        if line.startswith('Snare'):
+            self.router.snare()
+        elif line.startswith('Drum'):
+            self.router.drum()
+        elif line.startswith('Custom'):
+            self.router.custom(re_num.findall(line)[0])
+
+    def quit(self):
+        reactor.callLater(1, reactor.stop)
+
+
+class Effect(object):
+    def drum(self):
+        pass
+
+    def snare(self):
+        pass
+
+    def custom(self, freq):
+        pass
+
+    def inc(self, by=1):
+        self.c.rainbow(self.c.rain + by)
+
+class BRainbow(Effect):
+    def drum(self):
+        self.inc(40)
+
+    def snare(self):
+        self.inc(20)
+
+    def custom(self, freq):
+        self.inc()
+
+
+class Strobe(Effect):
+    on = True
+
+    def drum(self):
+        self.flip()
+
+    def snare(self):
+        #pass
+        self.flip()
+
+    def custom(self, freq):
+        pass
+        #self.flip()
+
+    def flip(self):
+        self.c.rgb(0, 0, 0)
+        self.c.rgb(255, 255, 255)
+        self.c.rgb(0, 0, 0)
+        return
+        if self.on:
+            self.c.rgb(0, 0, 0)
+            self.on = False
+        else:
+            self.c.rgb(255, 255, 255)
+            self.on = True
+
+class NStrobe(Strobe):
+    n = 2
+    def flip(self):
+        for i in range(self.n):
+            self.c.rgb(0, 0, 0)
+            self.c.rgb(255, 255, 255)
+            self.c.rgb(0, 0, 0)
+
+
+class Router(object):
+    def __init__(self):
+        self.clients = []
+
+    def drum(self):
+        [c.eff.drum() for c in self.clients]
+
+    def snare(self):
+        [c.eff.snare() for c in self.clients]
+
+    def custom(self, freq):
+        [c.eff.custom(freq) for c in self.clients]
+
+class UDPClient(DatagramProtocol):
+    cnt = 0
+    rain = 0
+    bright = 0
+    addr = '10.0.0.129'
+    eff = None
+
+    def startProtocol(self):
+        self.transport.connect(self.addr, 6666)
+        self.transport.write('x')
+        self.brightness(1024)
+
+    def stopProtocol(self):
+        self.doStart()
+
+    def datagramReceived(self, datagram, host):
+        if not self.cnt:
+            cnt = struct.unpack('=i', datagram)
+            self.cnt = cnt[0]
+            print('Count received {}'.format(self.cnt))
+        else:
+            print('Data received {}'.format(repr(datagram)))
+
+    def rainbow(self, val):
+        self.rain = val
+        self.rain %= 512
+        self.send()
+
+    def brightness(self, val):
+        self.bright = val
+        self.send(t='b')
+
+    def send(self, t='r'):
+        if t == 'r':
+            data = struct.pack('=i', self.rain)
+        elif t == 'b':
+            data = struct.pack('=i', self.bright)
+
+        self.transport.write(t)
+        self.transport.write(data)
+
+    def rgb(self, r, g, b):
+        self.transport.write('a')
+        data = struct.pack('='+'BBB'*self.cnt, *[b,g,r]*self.cnt)
+        self.transport.write(data)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='hacked-cnc server')
+    parser.add_argument('--stdio', action="store_true", default=False,
+                        help='Use stdio')
+
+    args = parser.parse_args()
+
+    udpprotocol = UDPClient()
+    udpprotocol2 = UDPClient()
+    udpprotocol2.addr = '10.0.0.188'
+
+    eff = BRainbow()
+    eff = Strobe()
+    eff = NStrobe()
+    eff.c = udpprotocol
+
+    eff2 = BRainbow()
+    eff2 = Strobe()
+    eff2.c = udpprotocol2
+
+    udpprotocol.eff = eff
+    udpprotocol2.eff = eff2
+
+    t = reactor.listenUDP(0, udpprotocol)
+    t2 = reactor.listenUDP(0, udpprotocol2)
+
+    router = Router()
+    router.clients.append(udpprotocol)
+    router.clients.append(udpprotocol2)
+    proto = BeatProto(router)
+
+    stdio.StandardIO(proto)
+
+    reactor.run()
