@@ -21,8 +21,12 @@ TestFFTDisplay::TestFFTDisplay(QWidget *parent) :
 {
     m_Controller = new libbeat::BeatController(0,4096,44100,192);
     //Setup two test frequencies: 600Hz and 12000Hz
-    m_Controller->addCustomBeat(600);
-    m_Controller->addCustomBeat(12000);
+    m_Controller->addCustomBeat(20);
+    m_Controller->addCustomBeat(30);
+    m_Controller->addCustomBeat(40);
+    m_Controller->addCustomBeat(50);
+    //m_Controller->addCustomBeat(600);
+    //m_Controller->addCustomBeat(12000);
     //Draw when processed and analysed data is ready to be displayed
     connect(m_Controller,SIGNAL(processingDone()),this,SLOT(drawNewData()));
     //Connect some test slots to the Controller's signals

@@ -56,31 +56,40 @@ class BRainbow(Effect):
         self.inc()
 
 
-class Strobe(Effect):
-    on = True
+
+class RGB(Effect):
+    rgb = (205, 0, 0)
 
     def drum(self):
         self.flip()
 
     def snare(self):
-        #pass
         self.flip()
 
     def custom(self, freq):
-        pass
-        #self.flip()
+        self.flip()
 
     def flip(self):
-        self.c.rgb(0, 0, 0)
-        self.c.rgb(255, 255, 255)
-        self.c.rgb(0, 0, 0)
-        return
-        if self.on:
-            self.c.rgb(0, 0, 0)
-            self.on = False
-        else:
-            self.c.rgb(255, 255, 255)
-            self.on = True
+        self.c.rgb(*self.rgb)
+
+
+
+class Strobe(Effect):
+    on = True
+    seq = [(0, 0, 0), (255, 255, 255), (0, 0, 0)]
+
+    def drum(self):
+        self.flip()
+
+    def snare(self):
+        self.flip()
+
+    def custom(self, freq):
+        self.flip()
+
+    def flip(self):
+        for c in self.seq:
+            self.c.rgb(*c)
 
 class NStrobe(Strobe):
     n = 2
@@ -91,17 +100,96 @@ class NStrobe(Strobe):
             self.c.rgb(0, 0, 0)
 
 
+class INVStrobe(Strobe):
+    seq = [(0, 0, 0), (0, 0, 0),
+           (0, 0, 0), (0, 0, 0),
+           (255, 255, 255)]
+
+
+class VariStrobe(Strobe):
+    d = [(0, 0, 0), (255, 255, 255), (0, 0, 0)]
+    s = [(0, 0, 0), (100, 100, 100), (0, 0, 0)]
+    cu = [(0, 0, 0), (50, 50, 50), (0, 0, 0)]
+
+    def drum(self):
+        for c in self.d:
+            self.c.rgb(*c)
+
+    def snare(self):
+        for c in self.s:
+            self.c.rgb(*c)
+
+    def custom(self, freq):
+        for c in self.cu:
+            self.c.rgb(*c)
+
+
+class RedVariStrobe(VariStrobe):
+    d = [(0, 0, 0), (255, 0, 0), (0, 0, 0)]
+    s = [(0, 0, 0), (100, 0, 0), (0, 0, 0)]
+    cu = [(0, 0, 0), (50, 0, 0), (0, 0, 0)]
+
+    pass
+
+
+class XVariStrobe(VariStrobe):
+    d = [(0, 0, 0), (0, 0, 100), (0, 0, 0)]
+    s = [(0, 0, 0), (0, 0, 70), (0, 0, 0)]
+    cu = [(0, 0, 0), (0, 0, 30), (0, 0, 0)]
+
+    pass
+
+
+class ColorStrobe(Strobe):
+    seq = [(0, 0, 0), (255, 0, 0), (0, 0, 0)]
+
+class RGBStrobe(Strobe):
+    seq = [(55, 0, 0), (255, 0, 0), (55, 0, 0)]
+
+
+# frikin yellow
+class YStrobe(Strobe):
+    seq = [(0, 0, 0), (100, 100, 0), (0, 0, 0)]
+
+class CycleRGBStrobe(Strobe):
+    counter = 0
+    over = 300
+    seq_counter = 0
+    seqs = [
+        [(55, 0, 0), (255, 0, 0), (55, 0, 0)],
+        [(0, 55, 0), (0, 255, 0), (0, 55, 0)],
+        [(0, 0, 55), (0, 0, 255), (0, 0, 55)],
+        [(0, 0, 0), (255, 255, 255), (0, 0, 0)]
+    ]
+
+    def flip(self):
+        if not self.seq:
+            self.seq = self.seqs[0]
+
+        for c in self.seq:
+            self.c.rgb(*c)
+
+        self.counter += 1
+        if self.counter > self.over:
+            self.counter = 0
+            self.seq_counter += 1
+            self.seq = self.seqs[self.seq_counter % len(self.seqs)]
+
+
 class Router(object):
     def __init__(self):
         self.clients = []
 
     def drum(self):
+        print('Drum')
         [c.eff.drum() for c in self.clients]
 
     def snare(self):
+        print('Snare')
         [c.eff.snare() for c in self.clients]
 
     def custom(self, freq):
+        print('{}'.format(freq))
         [c.eff.custom(freq) for c in self.clients]
 
 class UDPClient(DatagramProtocol):
@@ -161,14 +249,40 @@ if __name__ == '__main__':
     udpprotocol2 = UDPClient()
     udpprotocol2.addr = '10.0.0.188'
 
-    eff = BRainbow()
-    eff = Strobe()
+    eff_t = CycleRGBStrobe
+
+    eff = eff_t()
+    eff.c = udpprotocol
+    eff2 = eff_t()
+    eff2.c = udpprotocol2
+
+    """
     eff = NStrobe()
+    eff = ColorStrobe()
+    eff = RGB()
+    eff = VariStrobe()
+    eff = RedVariStrobe()
+    eff = BRainbow()
+    eff = XVariStrobe()
+    eff = CycleRGBStrobe()
+    eff = Strobe()
+    eff = VariStrobe()
+    eff = RGBStrobe()
+    eff = INVStrobe()
     eff.c = udpprotocol
 
+    eff2 = ColorStrobe()
+    eff2 = RGB()
+    eff2 = VariStrobe()
+    eff2 = RedVariStrobe()
     eff2 = BRainbow()
+    eff2 = RedVariStrobe()
+    eff2 = CycleRGBStrobe()
     eff2 = Strobe()
+    eff2 = RGBStrobe()
+    eff2 = INVStrobe()
     eff2.c = udpprotocol2
+    """
 
     udpprotocol.eff = eff
     udpprotocol2.eff = eff2
